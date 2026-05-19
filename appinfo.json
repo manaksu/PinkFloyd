@@ -1,0 +1,16 @@
+{
+  "name": "pink-floyd-watchface",
+  "version": "1.0.0",
+  "description": "Pink Floyd Time Watchface for Pebble Time Steel",
+  "main": "src/main.c",
+  "scripts": {
+    "build": "pebble build"
+  },
+  "keywords": [
+    "pebble",
+    "watchface",
+    "pink-floyd"
+  ],
+  "author": "",
+  "license": "MIT"
+}
