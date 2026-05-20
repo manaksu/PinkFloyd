@@ -11,7 +11,9 @@
   "watchapp": {
     "watchface": true
   },
-  "appKeys": {},
+  "appKeys": {
+    "KEY_FONT": 0
+  },
   "resources": {
     "media": [
       {
@@ -19,10 +21,22 @@
         "name": "IMAGE_PAPER_BG",
         "file": "images/paper_bg.png",
         "storageFormat": "pbi"
+      },
+      {
+        "type": "font",
+        "name": "FONT_SE_14",
+        "file": "fonts/SpecialElite-Regular.ttf"
+      },
+      {
+        "type": "font",
+        "name": "FONT_SE_18",
+        "file": "fonts/SpecialElite-Regular.ttf"
       }
     ]
   },
-  "capabilities": [],
+  "capabilities": [
+    "configurable"
+  ],
   "projectType": "native",
   "messageKeys": {}
 }
