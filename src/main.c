@@ -187,8 +187,8 @@ static void window_load(Window *window) {
   Layer *root = window_get_root_layer(window);
   GRect  bounds = layer_get_bounds(root);
 
-  s_font_sm = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SE_14));
-  s_font_lg = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SE_18));
+  s_font_sm = fonts_get_system_font(FONT_KEY_GOTHIC_14);
+  s_font_lg = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
 
   s_bg_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_PAPER_BG);
   s_bg_layer  = bitmap_layer_create(bounds);
@@ -208,8 +208,6 @@ static void window_unload(Window *window) {
   layer_destroy(s_canvas);
   bitmap_layer_destroy(s_bg_layer);
   gbitmap_destroy(s_bg_bitmap);
-  fonts_unload_custom_font(s_font_sm);
-  fonts_unload_custom_font(s_font_lg);
 }
 
 static void init(void) {
