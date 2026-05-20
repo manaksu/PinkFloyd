@@ -1,16 +1,38 @@
 {
-  "name": "pink-floyd-watchface",
-  "version": "1.0.0",
-  "description": "Pink Floyd Time Watchface for Pebble Time Steel",
-  "main": "src/main.c",
-  "scripts": {
-    "build": "pebble build"
-  },
-  "keywords": [
-    "pebble",
-    "watchface",
-    "pink-floyd"
+  "uuid": "d4e5f6a7-b8c9-0123-defa-234567890abc",
+  "shortName": "PFW",
+  "longName": "Pink Floyd Watch",
+  "companyName": "manaksu",
+  "versionLabel": "1.0",
+  "sdkVersion": "3",
+  "targetPlatforms": [
+    "basalt"
   ],
-  "author": "",
-  "license": "MIT"
+  "watchapp": {
+    "watchface": true
+  },
+  "appKeys": {},
+  "resources": {
+    "media": [
+      {
+        "type": "bitmap",
+        "name": "IMAGE_PAPER_BG",
+        "file": "images/paper_bg.png",
+        "storageFormat": "pbi"
+      },
+      {
+        "type": "font",
+        "name": "FONT_SE_14",
+        "file": "fonts/SpecialElite-Regular.ttf"
+      },
+      {
+        "type": "font",
+        "name": "FONT_SE_18",
+        "file": "fonts/SpecialElite-Regular.ttf"
+      }
+    ]
+  },
+  "capabilities": [],
+  "projectType": "native",
+  "messageKeys": {}
 }

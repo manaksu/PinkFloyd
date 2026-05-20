@@ -1,292 +1,230 @@
 #include <pebble.h>
 #include <string.h>
 
-static Window *s_main_window;
-static Layer *s_lyrics_layer;
-static GFont s_font;
+/*
+ * Pink Floyd Watch
+ * Lyrics fill the screen, time words highlighted bold
+ * Header: dark bar bleeding left, PINK FLOYD left-aligned
+ * Top right: Month Day / DOW
+ *
+ * Hour + quarter past / half past / quarter to
+ */
 
-// Word structure for rendering
+/* ── lyric entry ── */
 typedef struct {
-  char text[32];
-  bool highlight;
-  GRect rect;
-} WordInfo;
+  const char *text;  /* full lyric, space-separated uppercase words */
+  const char *h1;    /* hour word to highlight */
+} Lyric;
 
-static WordInfo s_words[64];
-static int s_word_count;
-
-// Pink Floyd lyrics corpus
-static const char *lyrics[] = {
-  "AND THEN ONE DAY YOU FIND TEN YEARS HAVE GOT BEHIND YOU",
-  "NO ONE TOLD YOU WHEN TO RUN YOU MISSED THE STARTING GUN",
-  "AND YOU RUN AND YOU RUN TO CATCH UP WITH THE SUN BUT IT'S SINKING",
-  "RACING AROUND TO COME UP BEHIND YOU AGAIN",
-  "THE SUN IS THE SAME IN A RELATIVE WAY BUT YOU'RE OLDER",
-  "SHORTER OF BREATH AND ONE DAY CLOSER TO DEATH",
-  "EVERY YEAR IS GETTING SHORTER NEVER SEEM TO FIND THE TIME",
-  "PLANS THAT EITHER COME TO NAUGHT OR HALF A PAGE OF SCRIBBLED LINES",
-  "HANGING ON IN QUIET DESPERATION IS THE ENGLISH WAY",
-  "THE TIME IS GONE THE SONG IS OVER THOUGHT I'D SOMETHING MORE TO SAY",
-  "WELCOME TO THE MACHINE WE TOLD YOU WHAT TO DREAM",
-  "YOU CHOSE A CAREER IN TELEVISION",
-  "WHAT DID YOU DREAM IT'S ALRIGHT WE TOLD YOU WHAT TO DREAM",
-  "SHINE ON YOU CRAZY DIAMOND",
-  "NOBODY KNOWS WHERE YOU ARE TO HOW NEAR OR HOW FAR",
-  "THERE'S NO WAY OUT OF HERE",
-  "DANCE ON THE VAULTED CEILING",
-  "TAKE YOUR WINGS AND FLY OUT OF HERE",
-  "COMFORTABLY NUMB HELLO IS THERE ANYBODY IN THERE",
-  "JUST NOD IF YOU CAN HEAR ME",
-  "IS THERE ANYONE AT HOME",
-  "I CAN FEEL IT COMING IN THE AIR TONIGHT",
-  "WISH YOU WERE HERE SO SO YOU THINK YOU CAN TELL",
-  "HEAVEN FROM HELL BLUE SKIES FROM PAIN",
-  "DID YOU GET YOU TO TRADE YOUR HEROES FOR GHOSTS",
-  "WE'RE JUST TWO LOST SOULS SWIMMING IN A FISH BOWL",
-  "THE WALL ANOTHER BRICK IN THE WALL",
-  "WE DON'T NEED NO EDUCATION",
-  "HEY TEACHER LEAVE THEM KIDS ALONE",
-  "ALL IN ALL IT'S JUST ANOTHER BRICK IN THE WALL",
-  "MONEY GET AWAY GET A GOOD JOB WITH MORE PAY AND YOUR OKAY",
-  "MONEY IT'S A GAS GRAB THAT CASH WITH BOTH HANDS",
-  "SHARE IT FAIRLY BUT DON'T TAKE A SLICE OF MY PIE",
-  "US AND THEM AND AFTER ALL WE'RE ONLY ORDINARY MEN",
-  "ME AND YOU GOD ONLY KNOWS IT'S NOT WHAT WE WOULD CHOOSE TO DO",
-  "FORWARD HE CRIED FROM THE REAR AND THE FRONT RANK DIED",
-  "THE GENERAL SAT AND THE LINES ON THE MAP MOVED FROM SIDE TO SIDE",
-  "BREATHE BREATHE IN THE AIR",
-  "DON'T BE AFRAID TO CARE",
-  "LEAVE BUT DON'T LEAVE ME",
-  "LOOK AROUND AND CHOOSE YOUR OWN GROUND",
-  "LONG YOU LIVE AND HIGH YOU FLY",
-  "AND SMILES YOU'LL GIVE AND TEARS YOU'LL CRY",
-  "AND ALL YOU TOUCH AND ALL YOU SEE",
-  "IS ALL YOUR LIFE WILL EVER BE"
+static const Lyric s_lyrics[12][3] = {
+  /* 1 */
+  {{"AND THEN ONE WORLD AND ONE DAY YOU FIND JUST ONE LIFE ONE LOVE", "ONE"},
+   {"ONE SLIP AND DOWN THE HOLE WE FALL IT TAKES NO TIME TO FALL AT ALL", "ONE"},
+   {"ONE OF THESE DAYS IM GOING TO CUT YOU INTO LITTLE PIECES", "ONE"}},
+  /* 2 */
+  {{"TWO LOST SOULS SWIMMING IN A FISH BOWL YEAR AFTER YEAR RUNNING OVER THE SAME OLD GROUND", "TWO"},
+   {"AND YOU RUN PAST THE SUN WITH THE TWO SINKING RACING AROUND", "TWO"},
+   {"IS THERE ANYBODY OUT THERE AFTER TWO LONG YEARS", "TWO"}},
+  /* 3 */
+  {{"BREATHE BREATHE IN THE AIR DONT BE AFRAID TO CARE LEAVE BUT DONT LEAVE ME", "THREE"},
+   {"THE MEMORIES OF A MAN IN HIS OLD AGE ARE THE DEEDS OF A MAN IN HIS PRIME", "THREE"},
+   {"IS THERE ANYBODY OUT THERE THREE LONG YEARS OF SILENCE", "THREE"}},
+  /* 4 */
+  {{"WE DONT NEED NO EDUCATION WE DONT NEED NO THOUGHT CONTROL", "FOUR"},
+   {"HEY YOU OUT THERE IN THE COLD GETTING LONELY GETTING OLD CAN YOU FEEL ME", "FOUR"},
+   {"FOUR WALLS OF JERICHO CRUMBLE WHEN THE MUSIC DIES", "FOUR"}},
+  /* 5 */
+  {{"SHINE ON YOU CRAZY DIAMOND REMEMBER WHEN YOU WERE YOUNG YOU SHONE LIKE THE SUN", "FIVE"},
+   {"FIVE MILES OUT FROM THE WIRE AND FALLING FAST", "FIVE"},
+   {"REMEMBER WHEN YOU WERE YOUNG AT FIVE YOU SHONE LIKE THE SUN", "FIVE"}},
+  /* 6 */
+  {{"MONEY GET AWAY GET A GOOD JOB WITH MORE PAY AND YOURE OKAY", "SIX"},
+   {"THE LUNATIC IS ON THE GRASS SIX FEET FROM THE EDGE", "SIX"},
+   {"SIX OCLOCK IN THE MORNING THE LIGHT IS CALLING ME HOME", "SIX"}},
+  /* 7 */
+  {{"WELCOME MY SON WELCOME TO THE MACHINE WHERE HAVE YOU BEEN", "SEVEN"},
+   {"YOU ARE YOUNG AND LIFE IS LONG AND THERE IS TIME TO KILL TODAY", "SEVEN"},
+   {"SEVEN SEAS OF RHYE WILL I SEE YOU AGAIN", "SEVEN"}},
+  /* 8 */
+  {{"HELLO IS THERE ANYBODY IN THERE JUST NOD IF YOU CAN HEAR ME", "EIGHT"},
+   {"COMFORTABLY NUMB JUST A LITTLE PINPRICK THERE WILL BE NO MORE AAAAAH", "EIGHT"},
+   {"EIGHT MILES HIGH AND FALLING FAST SHE RODE OUT ON A CAROUSEL", "EIGHT"}},
+  /* 9 */
+  {{"ON THE TURNING AWAY FROM THE PALE AND DOWNTRODDEN AND THE WORDS THEY SAY", "NINE"},
+   {"THE TIDE IS TURNING ROSA NINE DAYS IN THE VALLEY OF SHADOWS", "NINE"},
+   {"TICKING AWAY AT NINE THE MOMENTS THAT MAKE UP A DULL DAY", "NINE"}},
+  /* 10 */
+  {{"AND THEN ONE DAY YOU FIND TEN YEARS HAVE GOT BEHIND YOU NO ONE TOLD YOU WHEN TO RUN", "TEN"},
+   {"TICKING AWAY THE MOMENTS THAT MAKE UP A DULL DAY FRITTER AND WASTE THE HOURS", "TEN"},
+   {"YOU MISSED THE STARTING GUN TEN SECONDS TO COMPLY", "TEN"}},
+  /* 11 */
+  {{"NOBODY HOME I GOT A LITTLE BLACK BOOK WITH MY POEMS IN AT ELEVEN", "ELEVEN"},
+   {"HEY HEY RISE UP ELEVEN TIMES THE FLAME BURNS BRIGHTER", "ELEVEN"},
+   {"THE SHOW MUST GO ON ELEVEN CURTAIN CALLS AND STILL THEY CHEER", "ELEVEN"}},
+  /* 12 */
+  {{"THE SUN IS THE SAME IN A RELATIVE WAY BUT YOURE OLDER SHORTER OF BREATH", "TWELVE"},
+   {"AND ONE DAY CLOSER TO DEATH THE CLOCK STRIKES TWELVE AND REMINDS US", "TWELVE"},
+   {"TWELVE NOON THE SUN IS HIGH THE CLOCK TICKS BY AND WE GROW OLD", "TWELVE"}},
 };
 
-static const int num_lyrics = sizeof(lyrics) / sizeof(lyrics[0]);
+static const char *minute_label(int min) {
+  if (min >=  8 && min <= 22) return "QUARTER PAST";
+  if (min >= 23 && min <= 36) return "HALF PAST";
+  if (min >= 37 && min <= 51) return "QUARTER TO";
+  return NULL;
+}
 
-// Time word mappings
-static const char *hour_words[] = {
-  "TWELVE", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX",
-  "SEVEN", "EIGHT", "NINE", "TEN", "ELEVEN"
-};
+static Window      *s_window;
+static BitmapLayer *s_bg_layer;
+static GBitmap     *s_bg_bitmap;
+static Layer       *s_canvas;
 
-static const char *minute_words[] = {
-  "", "FIVE", "TEN", "QUARTER", "TWENTY", "TWENTYFIVE", "HALF"
-};
+static GFont s_font_sm;  /* FONT_SE_14 */
+static GFont s_font_lg;  /* FONT_SE_18 */
 
-static int s_current_hour;
-static int s_current_minute;
+static int  s_hour, s_min;
+static char s_month_day[10];  /* "May 17" */
+static char s_dow[5];         /* "MON" */
 
-// Convert string to uppercase
-static void to_upper(char *str) {
-  for (int i = 0; str[i]; i++) {
-    str[i] = toupper(str[i]);
+/* ── draw word-wrapped lyric with inline highlights ── */
+static void draw_lyric(GContext *ctx, const char *text, const char *h1,
+                        const char *min_lbl, int start_y) {
+  char buf[256];
+  /* combine lyric + minute label */
+  if (min_lbl) {
+    snprintf(buf, sizeof(buf), "%s %s", text, min_lbl);
+  } else {
+    strncpy(buf, text, sizeof(buf)-1);
+    buf[sizeof(buf)-1] = '\0';
+  }
+
+  /* split by space, highlight h1 and minute words */
+  const int MARGIN_L = 4;
+  const int MARGIN_R = 140;
+  int x = MARGIN_L, y = start_y;
+  int line_h = 16;
+
+  char *word = strtok(buf, " ");
+  while (word) {
+    bool hi = (h1 && strcmp(word, h1)==0)
+           || (min_lbl && strstr(min_lbl, word) != NULL);
+    GFont fnt  = hi ? s_font_lg : s_font_sm;
+    GColor col = hi ? GColorBlack : GColorDarkGray;
+
+    GSize wsz = graphics_text_layout_get_content_size(
+      word, fnt, GRect(0,0,200,40),
+      GTextOverflowModeWordWrap, GTextAlignmentLeft);
+
+    if (x + wsz.w > MARGIN_R && x > MARGIN_L) {
+      y += line_h + 1;
+      x = MARGIN_L;
+      line_h = 16;
+    }
+
+    if (y > 162) break;
+
+    graphics_context_set_text_color(ctx, col);
+    graphics_draw_text(ctx, word, fnt,
+      GRect(x, y, MARGIN_R - x, 40),
+      GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+
+    x += wsz.w + 3;
+    if (hi && line_h < 20) line_h = 20;
+    word = strtok(NULL, " ");
   }
 }
 
-// Check if a word is a time word and should be highlighted
-static bool is_time_word(const char *word) {
-  char upper_word[32];
-  strncpy(upper_word, word, sizeof(upper_word) - 1);
-  upper_word[sizeof(upper_word) - 1] = '\0';
-  to_upper(upper_word);
-  
-  // Determine time words based on current time
-  int display_hour = s_current_hour % 12;
-  if (display_hour == 0) display_hour = 12;
-  
-  int next_hour = (s_current_hour % 12) + 1;
-  if (next_hour == 13) next_hour = 1;
-  
-  bool use_past = s_current_minute <= 30;
-  int display_minute = use_past ? s_current_minute : 60 - s_current_minute;
-  int minute_index = display_minute / 5;
-  if (minute_index > 6) minute_index = 6;
-  
-  // Check for hour words
-  if (strcmp(upper_word, hour_words[display_hour - 1]) == 0) {
-    return true;
-  }
-  
-  // Check for next hour (when using "to")
-  if (!use_past && strcmp(upper_word, hour_words[next_hour - 1]) == 0) {
-    return true;
-  }
-  
-  // Check for minute words
-  if (s_current_minute > 0 && minute_index > 0 && minute_index <= 6) {
-    if (strcmp(upper_word, minute_words[minute_index]) == 0) {
-      return true;
-    }
-  }
-  
-  // Check for "PAST" or "TO"
-  if (use_past && s_current_minute > 0 && strcmp(upper_word, "PAST") == 0) {
-    return true;
-  }
-  if (!use_past && s_current_minute > 0 && strcmp(upper_word, "TO") == 0) {
-    return true;
-  }
-  
-  return false;
-}
+/* ── canvas ── */
+static void canvas_draw(Layer *layer, GContext *ctx) {
+  GFont sys14 = fonts_get_system_font(FONT_KEY_GOTHIC_14);
 
-// Parse lyrics into words with highlighting info
-static void parse_lyrics() {
-  s_word_count = 0;
-  
-  // Select random lyrics (4 lines)
-  int indices[4];
-  for (int i = 0; i < 4; i++) {
-    indices[i] = rand() % num_lyrics;
-  }
-  
-  for (int line = 0; line < 4; line++) {
-    const char *lyric = lyrics[indices[line]];
-    char word[32];
-    int word_pos = 0;
-    
-    for (int i = 0; lyric[i] != '\0' && s_word_count < 64; i++) {
-      if (lyric[i] == ' ') {
-        word[word_pos] = '\0';
-        
-        if (word_pos > 0) {
-          strncpy(s_words[s_word_count].text, word, sizeof(s_words[s_word_count].text) - 1);
-          s_words[s_word_count].text[sizeof(s_words[s_word_count].text) - 1] = '\0';
-          s_words[s_word_count].highlight = is_time_word(word);
-          s_word_count++;
-        }
-        word_pos = 0;
-      } else {
-        word[word_pos++] = lyric[i];
-      }
-    }
-    
-    // Handle last word
-    if (word_pos > 0 && s_word_count < 64) {
-      word[word_pos] = '\0';
-      strncpy(s_words[s_word_count].text, word, sizeof(s_words[s_word_count].text) - 1);
-      s_words[s_word_count].text[sizeof(s_words[s_word_count].text) - 1] = '\0';
-      s_words[s_word_count].highlight = is_time_word(word);
-      s_word_count++;
-    }
-  }
-}
+  /* ── PINK FLOYD header bar ── */
+  /* measure text width to know where bar ends */
+  GSize hdr_sz = graphics_text_layout_get_content_size(
+    "PINK FLOYD", s_font_sm, GRect(0,0,200,20),
+    GTextOverflowModeWordWrap, GTextAlignmentLeft);
+  int bar_right = 6 + hdr_sz.w + 10;
 
-// Custom layer update callback for rendering lyrics
-static void lyrics_layer_update_callback(Layer *layer, GContext *ctx) {
-  GRect bounds = layer_get_bounds(layer);
-  
-  // Clear background
   graphics_context_set_fill_color(ctx, GColorBlack);
-  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
-  
-  // Calculate word positions
-  int x = 5;
-  int y = 5;
-  int line_height = 18;
-  int max_width = bounds.size.w - 10;
-  
-  for (int i = 0; i < s_word_count; i++) {
-    GSize word_size = graphics_text_layout_get_content_size(
-      s_words[i].text,
-      s_font,
-      GRect(0, 0, max_width, line_height),
-      GTextOverflowModeWordWrap,
-      GTextAlignmentLeft
-    );
-    
-    // Check if word fits on current line
-    if (x + word_size.w > max_width) {
-      x = 5;
-      y += line_height;
-    }
-    
-    s_words[i].rect = GRect(x, y, word_size.w, line_height);
-    x += word_size.w + 5; // Add space between words
-  }
-  
-  // Draw words
-  for (int i = 0; i < s_word_count; i++) {
-    if (s_words[i].highlight) {
-      // Draw highlighted word with yellow background and black text
-      graphics_context_set_fill_color(ctx, GColorYellow);
-      graphics_fill_rect(ctx, s_words[i].rect, 2, GCornersAll);
-      graphics_context_set_text_color(ctx, GColorBlack);
-    } else {
-      // Draw normal word with white text
-      graphics_context_set_text_color(ctx, GColorWhite);
-    }
-    
-    graphics_draw_text(
-      ctx,
-      s_words[i].text,
-      s_font,
-      s_words[i].rect,
-      GTextOverflowModeTrailingEllipsis,
-      GTextAlignmentLeft,
-      NULL
-    );
-  }
+  graphics_fill_rect(ctx, GRect(0, 3, bar_right, 22), 2, GCornersRight);
+
+  graphics_context_set_text_color(ctx, GColorLightGray);
+  graphics_draw_text(ctx, "PINK FLOYD", s_font_sm,
+    GRect(6, 5, hdr_sz.w + 4, 16),
+    GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+
+  /* ── date top right ── */
+  graphics_context_set_text_color(ctx, GColorDarkGray);
+  graphics_draw_text(ctx, s_month_day, sys14,
+    GRect(0, 4, 140, 14),
+    GTextOverflowModeWordWrap, GTextAlignmentRight, NULL);
+  graphics_draw_text(ctx, s_dow, sys14,
+    GRect(0, 16, 140, 14),
+    GTextOverflowModeWordWrap, GTextAlignmentRight, NULL);
+
+  /* ── lyric ── */
+  int hidx    = s_hour % 12;
+  int variant = (s_min / 5) % 3;
+  const Lyric *l = &s_lyrics[hidx][variant];
+  const char  *suffix = minute_label(s_min);
+
+  draw_lyric(ctx, l->text, l->h1, suffix, 28);
 }
 
-static void update_time() {
-  time_t temp = time(NULL);
-  struct tm *tick_time = localtime(&temp);
-  
-  s_current_hour = tick_time->tm_hour;
-  s_current_minute = tick_time->tm_min;
-  
-  parse_lyrics();
-  layer_mark_dirty(s_lyrics_layer);
+static void update_time(struct tm *t) {
+  s_hour = t->tm_hour;
+  s_min  = t->tm_min;
+  strftime(s_month_day, sizeof(s_month_day), "%b %d", t);
+  strftime(s_dow,       sizeof(s_dow),       "%a",    t);
+  layer_mark_dirty(s_canvas);
 }
 
-static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-  update_time();
+static void tick_handler(struct tm *tick_time, TimeUnits u) {
+  update_time(tick_time);
 }
 
-static void main_window_load(Window *window) {
-  Layer *window_layer = window_get_root_layer(window);
-  GRect bounds = layer_get_bounds(window_layer);
-  
-  // Load custom font
-  s_font = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
-  
-  // Create custom lyrics layer
-  s_lyrics_layer = layer_create(GRect(0, 0, bounds.size.w, bounds.size.h));
-  layer_set_update_proc(s_lyrics_layer, lyrics_layer_update_callback);
-  layer_add_child(window_layer, s_lyrics_layer);
-  
-  // Seed random number generator
-  srand(time(NULL));
-  
-  update_time();
+static void window_load(Window *window) {
+  Layer *root = window_get_root_layer(window);
+  GRect  bounds = layer_get_bounds(root);
+
+  s_font_sm = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SE_14));
+  s_font_lg = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SE_18));
+
+  s_bg_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_PAPER_BG);
+  s_bg_layer  = bitmap_layer_create(bounds);
+  bitmap_layer_set_bitmap(s_bg_layer, s_bg_bitmap);
+  bitmap_layer_set_compositing_mode(s_bg_layer, GCompOpAssign);
+  layer_add_child(root, bitmap_layer_get_layer(s_bg_layer));
+
+  s_canvas = layer_create(bounds);
+  layer_set_update_proc(s_canvas, canvas_draw);
+  layer_add_child(root, s_canvas);
+
+  time_t now = time(NULL);
+  update_time(localtime(&now));
 }
 
-static void main_window_unload(Window *window) {
-  layer_destroy(s_lyrics_layer);
+static void window_unload(Window *window) {
+  layer_destroy(s_canvas);
+  bitmap_layer_destroy(s_bg_layer);
+  gbitmap_destroy(s_bg_bitmap);
+  fonts_unload_custom_font(s_font_sm);
+  fonts_unload_custom_font(s_font_lg);
 }
 
-static void init() {
-  s_main_window = window_create();
-  window_set_window_handlers(s_main_window, (WindowHandlers) {
-    .load = main_window_load,
-    .unload = main_window_unload
+static void init(void) {
+  s_window = window_create();
+  window_set_background_color(s_window, GColorWhite);
+  window_set_window_handlers(s_window, (WindowHandlers){
+    .load = window_load, .unload = window_unload
   });
-  window_set_background_color(s_main_window, GColorBlack);
-  window_stack_push(s_main_window, true);
-  
+  window_stack_push(s_window, true);
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
 }
 
-static void deinit() {
-  window_destroy(s_main_window);
+static void deinit(void) {
+  tick_timer_service_unsubscribe();
+  window_destroy(s_window);
 }
 
-int main(void) {
-  init();
-  app_event_loop();
-  deinit();
-}
+int main(void) { init(); app_event_loop(); deinit(); }
