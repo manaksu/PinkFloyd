@@ -5,7 +5,7 @@
 #define FONT_SYSTEM  0
 #define FONT_CUSTOM  1
 
-static int s_font_mode = FONT_SYSTEM;
+static int s_font_mode = FONT_CUSTOM;
 static Window      *s_window;
 static BitmapLayer *s_bg_layer;
 static GBitmap     *s_bg_bitmap;
@@ -139,6 +139,98 @@ static void draw_lyric(GContext *ctx, const char *text,
   }
 }
 
+
+/* ── Dark Side prism battery indicator ── */
+static void draw_prism_battery(GContext *ctx) {
+  BatteryChargeState batt = battery_state_service_peek();
+  int pct = (int)batt.charge_percent;
+
+  /* prism coordinates — small, bottom-right corner */
+  const int ox=108, oy=140, pw=28, ph=24;
+  int tx=ox+pw/2, ty=oy;
+  int lx=ox,      ly=oy+ph;
+  int rx=ox+pw,   ry=oy+ph;
+
+  /* entry left face, exit right face */
+  int entry_x=(tx+lx)/2, entry_y=(ty+ly)/2;
+  int exit_x=(tx+rx)/2,  exit_y=(ty+ry)/2 - 2;
+
+  /* incoming rays start */
+  int in_sx  = entry_x - 18;
+  int in_s1y = 160;
+  int in_s2y = 164;
+
+  /* 3 outgoing ray endpoints */
+  const int NUM_RAYS = 3;
+  int out_ex = 144;
+  int out_ey[3] = {exit_y, exit_y+5, exit_y+11};
+
+  int filled = (pct * (NUM_RAYS-1)) / 100;
+  if (pct > 0 && filled == 0) filled = 1;
+
+  /* fill triangle left to right */
+  int fill_w = pw * pct / 100;
+  for (int x = ox; x <= ox + fill_w; x++) {
+    int y_top;
+    if (x <= tx) {
+      y_top = ly + (ty - ly) * (x - lx) / (tx - lx);
+    } else {
+      y_top = ty + (ry - ty) * (x - tx) / (rx - tx);
+    }
+    graphics_context_set_stroke_color(ctx, GColorLightGray);
+    graphics_draw_line(ctx, GPoint(x, y_top), GPoint(x, ly));
+  }
+
+  /* fill between incoming rays */
+  if (pct > 0) {
+    int steps_l = entry_x - in_sx;
+    if (steps_l > 0) {
+      for (int x = in_sx; x <= entry_x; x++) {
+        int t_num = x - in_sx;
+        int ya = in_s1y + (entry_y - 2 - in_s1y) * t_num / steps_l;
+        int yb = in_s2y + (entry_y + 2 - in_s2y) * t_num / steps_l;
+        if (ya > yb) { int tmp=ya; ya=yb; yb=tmp; }
+        graphics_context_set_stroke_color(ctx, GColorLightGray);
+        graphics_draw_line(ctx, GPoint(x, ya), GPoint(x, yb));
+      }
+    }
+  }
+
+  /* fill outgoing ray gaps */
+  int steps_r = out_ex - exit_x;
+  if (steps_r > 0) {
+    for (int i = 0; i < NUM_RAYS - 1; i++) {
+      int ri = NUM_RAYS - 2 - i;
+      if (i < filled) {
+        for (int x = exit_x; x <= out_ex; x++) {
+          int t_num = x - exit_x;
+          int ya = exit_y + (out_ey[ri+1] - exit_y) * t_num / steps_r;
+          int yb = exit_y + (out_ey[ri]   - exit_y) * t_num / steps_r;
+          if (ya > yb) { int tmp=ya; ya=yb; yb=tmp; }
+          graphics_context_set_stroke_color(ctx, GColorLightGray);
+          graphics_draw_line(ctx, GPoint(x, ya), GPoint(x, yb));
+        }
+      }
+    }
+  }
+
+  /* outgoing ray lines */
+  graphics_context_set_stroke_color(ctx, GColorBlack);
+  graphics_context_set_stroke_width(ctx, 1);
+  for (int i = 0; i < NUM_RAYS; i++) {
+    graphics_draw_line(ctx, GPoint(exit_x, exit_y), GPoint(out_ex, out_ey[i]));
+  }
+
+  /* 2 incoming rays */
+  graphics_draw_line(ctx, GPoint(in_sx, in_s1y), GPoint(entry_x, entry_y-2));
+  graphics_draw_line(ctx, GPoint(in_sx, in_s2y), GPoint(entry_x, entry_y+2));
+
+  /* prism outline */
+  graphics_draw_line(ctx, GPoint(tx,ty), GPoint(lx,ly));
+  graphics_draw_line(ctx, GPoint(lx,ly), GPoint(rx,ry));
+  graphics_draw_line(ctx, GPoint(rx,ry), GPoint(tx,ty));
+}
+
 static void canvas_draw(Layer *layer, GContext *ctx) {
   GFont sm = s_font_sm;
 
@@ -147,12 +239,16 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
     "PINK FLOYD", sm, GRect(0,0,200,20),
     GTextOverflowModeWordWrap, GTextAlignmentLeft);
   int bar_r = 4 + hdr.w + 8;
-  graphics_context_set_fill_color(ctx, GColorBlack);
+  /* semi-transparent effect — dark overlay on paper bg */
+  graphics_context_set_fill_color(ctx, GColorDarkGray);
   graphics_fill_rect(ctx, GRect(0, 0, bar_r, 20), 0, GCornerNone);
-  graphics_context_set_text_color(ctx, GColorLightGray);
+  graphics_context_set_text_color(ctx, GColorWhite);
   graphics_draw_text(ctx, "PINK FLOYD", sm,
     GRect(4, 1, hdr.w + 4, 18),
     GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+
+  /* prism battery */
+  draw_prism_battery(ctx);
 
   /* date top right */
   graphics_context_set_text_color(ctx, GColorDarkGray);
@@ -204,8 +300,8 @@ static void window_load(Window *window) {
   s_font_lg = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
   /* load fonts based on setting */
   if (s_font_mode == FONT_CUSTOM) {
-    s_font_sm = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SE_14));
-    s_font_lg = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SE_18));
+    s_font_sm = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SCP_14));
+    s_font_lg = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SCP_18));
   } else {
     s_font_sm = fonts_get_system_font(FONT_KEY_GOTHIC_14);
     s_font_lg = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);

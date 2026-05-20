@@ -34,7 +34,7 @@ function buildConfig(c) {
     +'</style></head><body>'
     +'<h3>Font</h3>'
     +radio('font',[
-      'System \u2014 Gothic clean',
+      'Source Code Pro \u2014 Default',
       'Special Elite \u2014 Typewriter'
     ],c.font)
     +'<button id="s">Save</button>'

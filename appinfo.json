@@ -31,6 +31,16 @@
         "type": "font",
         "name": "FONT_SE_18",
         "file": "fonts/SpecialElite-Regular.ttf"
+      },
+      {
+        "type": "font",
+        "name": "FONT_SCP_14",
+        "file": "fonts/SourceCodePro-Medium.ttf"
+      },
+      {
+        "type": "font",
+        "name": "FONT_SCP_18",
+        "file": "fonts/SourceCodePro-Medium.ttf"
       }
     ]
   },
