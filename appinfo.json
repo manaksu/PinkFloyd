@@ -12,7 +12,8 @@
     "watchface": true
   },
   "appKeys": {
-    "KEY_FONT": 0
+    "KEY_FONT": 0,
+    "KEY_CASE": 1
   },
   "resources": {
     "media": [
@@ -34,13 +35,23 @@
       },
       {
         "type": "font",
-        "name": "FONT_SCP_14",
+        "name": "FONT_SCP_12",
         "file": "fonts/SourceCodePro-Medium.ttf"
       },
       {
         "type": "font",
-        "name": "FONT_SCP_18",
+        "name": "FONT_SCP_16",
         "file": "fonts/SourceCodePro-Medium.ttf"
+      },
+      {
+        "type": "font",
+        "name": "FONT_RB_14",
+        "file": "fonts/Roboto.ttf"
+      },
+      {
+        "type": "font",
+        "name": "FONT_RB_18",
+        "file": "fonts/Roboto.ttf"
       }
     ]
   },

@@ -1,11 +1,17 @@
 #include <pebble.h>
 #include <string.h>
 
-#define KEY_FONT   0
-#define FONT_SYSTEM  0
-#define FONT_CUSTOM  1
+#define KEY_FONT        0
+#define KEY_CASE        1
+#define FONT_SCP     0
+#define FONT_SE      1
+#define FONT_SYSTEM  2
+#define FONT_ROBOTO  3
+#define CASE_UPPER   0
+#define CASE_LOWER   1
 
-static int s_font_mode = FONT_CUSTOM;
+static int s_font_mode = FONT_ROBOTO;
+static int s_case = CASE_LOWER;
 static Window      *s_window;
 static BitmapLayer *s_bg_layer;
 static GBitmap     *s_bg_bitmap;
@@ -95,7 +101,7 @@ static void draw_lyric(GContext *ctx, const char *text,
     snprintf(buf, sizeof(buf), "%s", text);
   }
 
-  int x = 4, y = 26, lh = 16;
+  int x = 4, y = 34, lh = 16;
   int bi = 0;
   char word[32];
 
@@ -115,8 +121,8 @@ static void draw_lyric(GContext *ctx, const char *text,
         hi = true;
     }
 
-    GFont fnt  = hi ? lg : sm;
-    GColor col = hi ? GColorBlack : GColorDarkGray;
+    GFont fnt  = hi ? fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD) : sm;
+    GColor col = hi ? GColorDarkGray : GColorBlack;
 
     GSize wsz = graphics_text_layout_get_content_size(
       word, fnt, GRect(0,0,200,40),
@@ -140,13 +146,19 @@ static void draw_lyric(GContext *ctx, const char *text,
 }
 
 
+
+/* ── convert string to lowercase in place ── */
+static void to_lower(char *s) {
+  for (int i = 0; s[i]; i++)
+    if (s[i] >= 'A' && s[i] <= 'Z') s[i] += 32;
+}
 /* ── Dark Side prism battery indicator ── */
 static void draw_prism_battery(GContext *ctx) {
   BatteryChargeState batt = battery_state_service_peek();
   int pct = (int)batt.charge_percent;
 
   /* prism coordinates — small, bottom-right corner */
-  const int ox=108, oy=140, pw=28, ph=24;
+  const int ox=108, oy=5, pw=28, ph=24;
   int tx=ox+pw/2, ty=oy;
   int lx=ox,      ly=oy+ph;
   int rx=ox+pw,   ry=oy+ph;
@@ -157,13 +169,13 @@ static void draw_prism_battery(GContext *ctx) {
 
   /* incoming rays start */
   int in_sx  = entry_x - 18;
-  int in_s1y = 160;
-  int in_s2y = 164;
+  int in_s1y = entry_y + 14;
+  int in_s2y = entry_y + 18;
 
   /* 3 outgoing ray endpoints */
   const int NUM_RAYS = 3;
   int out_ex = 144;
-  int out_ey[3] = {exit_y, exit_y+5, exit_y+11};
+  int out_ey[3] = {exit_y+2, exit_y+7, exit_y+13};
 
   int filled = (pct * (NUM_RAYS-1)) / 100;
   if (pct > 0 && filled == 0) filled = 1;
@@ -241,7 +253,7 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
   int bar_r = 4 + hdr.w + 8;
   /* semi-transparent effect — dark overlay on paper bg */
   graphics_context_set_fill_color(ctx, GColorDarkGray);
-  graphics_fill_rect(ctx, GRect(0, 0, bar_r, 20), 0, GCornerNone);
+  graphics_fill_rect(ctx, GRect(0, 5, bar_r, 20), 0, GCornerNone);
   graphics_context_set_text_color(ctx, GColorWhite);
   graphics_draw_text(ctx, "PINK FLOYD", sm,
     GRect(4, 1, hdr.w + 4, 18),
@@ -250,12 +262,13 @@ static void canvas_draw(Layer *layer, GContext *ctx) {
   /* prism battery */
   draw_prism_battery(ctx);
 
-  /* date top right */
+  /* date bottom right — larger, dark grey */
+  GFont date_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
   graphics_context_set_text_color(ctx, GColorDarkGray);
-  graphics_draw_text(ctx, s_month_day, sm,
-    GRect(0, 1, 140, 14), GTextOverflowModeWordWrap, GTextAlignmentRight, NULL);
-  graphics_draw_text(ctx, s_dow, sm,
-    GRect(0, 13, 140, 14), GTextOverflowModeWordWrap, GTextAlignmentRight, NULL);
+  graphics_draw_text(ctx, s_month_day, date_font,
+    GRect(0, 138, 140, 20), GTextOverflowModeWordWrap, GTextAlignmentRight, NULL);
+  graphics_draw_text(ctx, s_dow, date_font,
+    GRect(0, 150, 140, 20), GTextOverflowModeWordWrap, GTextAlignmentRight, NULL);
 
   /* lyric */
   int hidx    = s_hour % 12;
@@ -277,9 +290,14 @@ static void inbox_received(DictionaryIterator *iter, void *ctx) {
   if (t) {
     s_font_mode = (int)t->value->int32;
     persist_write_int(KEY_FONT, s_font_mode);
-    /* reload window to swap fonts */
     window_stack_pop(true);
     window_stack_push(s_window, true);
+  }
+  Tuple *ct = dict_find(iter, KEY_CASE);
+  if (ct) {
+    s_case = (int)ct->value->int32;
+    persist_write_int(KEY_CASE, s_case);
+    layer_mark_dirty(s_canvas);
   }
 }
 
@@ -299,9 +317,15 @@ static void window_load(Window *window) {
   s_font_sm = fonts_get_system_font(FONT_KEY_GOTHIC_14);
   s_font_lg = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
   /* load fonts based on setting */
-  if (s_font_mode == FONT_CUSTOM) {
-    s_font_sm = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SCP_14));
-    s_font_lg = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SCP_18));
+  if (s_font_mode == FONT_SCP) {
+    s_font_sm = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SCP_12));
+    s_font_lg = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SCP_16));
+  } else if (s_font_mode == FONT_SE) {
+    s_font_sm = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SE_14));
+    s_font_lg = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_SE_18));
+  } else if (s_font_mode == FONT_ROBOTO) {
+    s_font_sm = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_RB_14));
+    s_font_lg = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_RB_18));
   } else {
     s_font_sm = fonts_get_system_font(FONT_KEY_GOTHIC_14);
     s_font_lg = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
@@ -314,14 +338,15 @@ static void window_unload(Window *window) {
   layer_destroy(s_canvas);
   bitmap_layer_destroy(s_bg_layer);
   gbitmap_destroy(s_bg_bitmap);
-  if (s_font_mode == FONT_CUSTOM) {
+  if (s_font_mode == FONT_SCP || s_font_mode == FONT_SE || s_font_mode == FONT_ROBOTO) {
     fonts_unload_custom_font(s_font_sm);
     fonts_unload_custom_font(s_font_lg);
   }
 }
 
 static void init(void) {
-  s_font_mode = persist_exists(KEY_FONT) ? persist_read_int(KEY_FONT) : FONT_SYSTEM;
+  s_font_mode = persist_exists(KEY_FONT) ? persist_read_int(KEY_FONT) : FONT_ROBOTO;
+  s_case      = persist_exists(KEY_CASE) ? persist_read_int(KEY_CASE) : CASE_LOWER;
   s_window = window_create();
   window_set_window_handlers(s_window, (WindowHandlers){
     .load = window_load, .unload = window_unload

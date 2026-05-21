@@ -3,11 +3,12 @@
  *   Key 0: KEY_FONT  0=System  1=Special Elite
  */
 function loadCfg() {
-  return { font: +(localStorage.getItem('font') || '0') };
+  return { font: +(localStorage.getItem('font') || '3'), case: +(localStorage.getItem('case') || '1') };
 }
-function saveCfg(c) { localStorage.setItem('font', c.font); }
+function saveCfg(c) { localStorage.setItem('font', c.font);
+  localStorage.setItem('case', c.case); }
 function sendMsg(c) {
-  Pebble.sendAppMessage({ 0: c.font },
+  Pebble.sendAppMessage({ 0: c.font, 1: c.case },
     function(){ console.log('ok'); },
     function(e){ console.log('fail', e); }
   );
@@ -34,15 +35,17 @@ function buildConfig(c) {
     +'</style></head><body>'
     +'<h3>Font</h3>'
     +radio('font',[
-      'Source Code Pro \u2014 Default',
-      'Special Elite \u2014 Typewriter'
+      'Source Code Pro',
+      'Special Elite \u2014 Typewriter',
+      'System \u2014 Gothic',
+      'Roboto \u2014 Default'
     ],c.font)
     +'<button id="s">Save</button>'
     +'<script>'
     +'document.getElementById("s").onclick=function(){'
     +'function g(n){var e=document.querySelector("input[name="+n+"]:checked");return e?+e.value:0;}'
     +'location.href="pebblejs://close#"+encodeURIComponent(JSON.stringify({'
-    +'font:g("font")}));'
+    +'font:g("font"),case:g("case")}));'
     +'};<\/script></body></html>';
   return 'data:text/html,'+encodeURIComponent(h);
 }
