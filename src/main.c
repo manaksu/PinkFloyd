@@ -9,8 +9,6 @@
 
 static int s_font_mode = FONT_ROBOTO;
 static Window      *s_window;
-static BitmapLayer *s_bg_layer;
-static GBitmap     *s_bg_bitmap;
 static Layer       *s_canvas;
 
 static int  s_hour, s_min;
@@ -98,7 +96,7 @@ static void draw_lyric(GContext *ctx, const char *text,
     snprintf(buf, sizeof(buf), "%s", text);
   }
 
-  int x = 4, y = 2, lh = 16;
+  int x = 4, y = 26, lh = 16;
   int bi = 0;
   char word[32];
 
@@ -118,8 +116,8 @@ static void draw_lyric(GContext *ctx, const char *text,
         hi = true;
     }
 
-    GFont fnt  = hi ? lg : sm;
-    GColor col = hi ? GColorBlack : GColorDarkGray;
+    GFont fnt  = sm;
+    GColor col = hi ? GColorRed : GColorBlack;
 
     GSize wsz = graphics_text_layout_get_content_size(
       word, fnt, GRect(0,0,200,40),
@@ -143,123 +141,69 @@ static void draw_lyric(GContext *ctx, const char *text,
 }
 
 
-/* ── Dark Side prism battery indicator ── */
-static void draw_prism_battery(GContext *ctx) {
-  BatteryChargeState batt = battery_state_service_peek();
-  int pct = (int)batt.charge_percent;
-
-  /* prism coordinates — small, bottom-right corner */
-  const int ox=116, oy=2, pw=24, ph=20;
-  int tx=ox+pw/2, ty=oy;
-  int lx=ox,      ly=oy+ph;
-  int rx=ox+pw,   ry=oy+ph;
-
-  /* entry left face, exit right face */
-  int entry_x=(tx+lx)/2, entry_y=(ty+ly)/2;
-  int exit_x=(tx+rx)/2,  exit_y=(ty+ry)/2 - 2;
-
-  /* incoming rays start */
-  int in_sx  = entry_x - 18;
-  int in_s1y = 160;
-  int in_s2y = 164;
-
-  /* 3 outgoing ray endpoints */
-  const int NUM_RAYS = 3;
-  int out_ex = 144;
-  int out_ey[3] = {exit_y, exit_y+5, exit_y+11};
-
-  int filled = (pct * (NUM_RAYS-1)) / 100;
-  if (pct > 0 && filled == 0) filled = 1;
-
-  /* fill triangle left to right */
-  int fill_w = pw * pct / 100;
-  for (int x = ox; x <= ox + fill_w; x++) {
-    int y_top;
-    if (x <= tx) {
-      y_top = ly + (ty - ly) * (x - lx) / (tx - lx);
-    } else {
-      y_top = ty + (ry - ty) * (x - tx) / (rx - tx);
-    }
-    graphics_context_set_stroke_color(ctx, GColorLightGray);
-    graphics_draw_line(ctx, GPoint(x, y_top), GPoint(x, ly));
-  }
-
-  /* fill between incoming rays */
-  if (pct > 0) {
-    int steps_l = entry_x - in_sx;
-    if (steps_l > 0) {
-      for (int x = in_sx; x <= entry_x; x++) {
-        int t_num = x - in_sx;
-        int ya = in_s1y + (entry_y - 2 - in_s1y) * t_num / steps_l;
-        int yb = in_s2y + (entry_y + 2 - in_s2y) * t_num / steps_l;
-        if (ya > yb) { int tmp=ya; ya=yb; yb=tmp; }
-        graphics_context_set_stroke_color(ctx, GColorLightGray);
-        graphics_draw_line(ctx, GPoint(x, ya), GPoint(x, yb));
-      }
-    }
-  }
-
-  /* fill outgoing ray gaps */
-  int steps_r = out_ex - exit_x;
-  if (steps_r > 0) {
-    for (int i = 0; i < NUM_RAYS - 1; i++) {
-      int ri = NUM_RAYS - 2 - i;
-      if (i < filled) {
-        for (int x = exit_x; x <= out_ex; x++) {
-          int t_num = x - exit_x;
-          int ya = exit_y + (out_ey[ri+1] - exit_y) * t_num / steps_r;
-          int yb = exit_y + (out_ey[ri]   - exit_y) * t_num / steps_r;
-          if (ya > yb) { int tmp=ya; ya=yb; yb=tmp; }
-          graphics_context_set_stroke_color(ctx, GColorLightGray);
-          graphics_draw_line(ctx, GPoint(x, ya), GPoint(x, yb));
-        }
-      }
-    }
-  }
-
-  /* outgoing ray lines */
-  graphics_context_set_stroke_color(ctx, GColorBlack);
-  graphics_context_set_stroke_width(ctx, 1);
-  for (int i = 0; i < NUM_RAYS; i++) {
-    graphics_draw_line(ctx, GPoint(exit_x, exit_y), GPoint(out_ex, out_ey[i]));
-  }
-
-  /* 2 incoming rays */
-  graphics_draw_line(ctx, GPoint(in_sx, in_s1y), GPoint(entry_x, entry_y-2));
-  graphics_draw_line(ctx, GPoint(in_sx, in_s2y), GPoint(entry_x, entry_y+2));
-
-  /* prism outline */
-  graphics_draw_line(ctx, GPoint(tx,ty), GPoint(lx,ly));
-  graphics_draw_line(ctx, GPoint(lx,ly), GPoint(rx,ry));
-  graphics_draw_line(ctx, GPoint(rx,ry), GPoint(tx,ty));
-}
-
+/* ── song names matching lyrics ── */
+static const char * const s_songs[12][3] = {
+  /* 1 */  {"One Slip",        "One Slip",          "One of These Days"},
+  /* 2 */  {"Wish You Were Here","Time",            "Echoes"},
+  /* 3 */  {"Breathe",         "Free Four",         "Is There Anybody"},
+  /* 4 */  {"Another Brick",   "Hey You",           "Another Brick"},
+  /* 5 */  {"Shine On",        "Shine On",          "Five Miles Out"},
+  /* 6 */  {"Money",           "Brain Damage",      "Time"},
+  /* 7 */  {"Welcome to the Machine","Time",        "Seven Seas"},
+  /* 8 */  {"Comfortably Numb","Comfortably Numb",  "Eight Miles High"},
+  /* 9 */  {"On the Turning Away","A New Machine",  "Time"},
+  /* 10 */ {"Time",            "Time",              "Time"},
+  /* 11 */ {"Nobody Home",     "Rise Up",           "The Show Must Go On"},
+  /* 12 */ {"Time",            "Time",              "Time"},
+};
 static void canvas_draw(Layer *layer, GContext *ctx) {
   GFont sm = s_font_sm;
 
-  /* header bar — flush top-left, bleeds left edge, ends after FLOYD */
-  GSize hdr = graphics_text_layout_get_content_size(
-    "PINK FLOYD", sm, GRect(0,0,200,20),
-    GTextOverflowModeWordWrap, GTextAlignmentLeft);
-  int bar_r = 4 + hdr.w + 8;
-  graphics_context_set_fill_color(ctx, GColorBlack);
-  graphics_fill_rect(ctx, GRect(0, 3, bar_r, 20), 2, GCornersRight);
-  graphics_context_set_text_color(ctx, GColorLightGray);
-  graphics_draw_text(ctx, "PINK FLOYD", sm,
-    GRect(4, 1, hdr.w + 4, 18),
-    GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
-
-  /* date — single line bottom, all caps */
-  GFont date_font = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
-  graphics_context_set_text_color(ctx, GColorBlack);
-  graphics_draw_text(ctx, s_date_line, date_font,
-    GRect(2, 152, 140, 16), GTextOverflowModeWordWrap, GTextAlignmentRight, NULL);
-
-  /* lyric */
+  /* lyric first — so banner draws on top */
   int hidx    = s_hour % 12;
   int variant = (s_min / 5) % 3;
   draw_lyric(ctx, s_lyrics[hidx][variant],
              s_hour_words[hidx], minute_label(s_min));
+
+  /* date — single line bottom, all caps */
+  GFont date_font = fonts_get_system_font(FONT_KEY_GOTHIC_14);
+  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_draw_text(ctx, s_date_line, date_font,
+    GRect(2, 152, 140, 16), GTextOverflowModeWordWrap, GTextAlignmentRight, NULL);
+
+  /* battery bar bottom-left */
+  BatteryChargeState batt = battery_state_service_peek();
+  int bpct = batt.charge_percent;
+  graphics_context_set_stroke_color(ctx, GColorBlack);
+  graphics_draw_rect(ctx, GRect(2, 157, 20, 8));
+  graphics_context_set_fill_color(ctx, GColorBlack);
+  graphics_fill_rect(ctx, GRect(22, 159, 2, 4), 0, GCornerNone);
+  GColor bfill = (bpct <= 20) ? GColorRed : GColorBlack;
+  graphics_context_set_fill_color(ctx, bfill);
+  graphics_fill_rect(ctx, GRect(3, 158, (18 * bpct / 100), 6), 0, GCornerNone);
+
+  /* header bar — sized exactly to PINK FLOYD text width */
+  GSize pf_sz = graphics_text_layout_get_content_size(
+    "PINK FLOYD", sm, GRect(0,0,200,20),
+    GTextOverflowModeWordWrap, GTextAlignmentLeft);
+  graphics_context_set_fill_color(ctx, GColorDarkGray);
+  graphics_fill_rect(ctx, GRect(0, 3, 4 + pf_sz.w + 6, 20), 0, GCornerNone);
+  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_draw_text(ctx, "PINK FLOYD",
+    sm,
+    GRect(4, 5, pf_sz.w + 2, 16),
+    GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+
+  /* song name — top right, pick font size by string length */
+  int song_x = 4 + pf_sz.w + 10;
+  const char *song = s_songs[s_hour%12][((s_min/5)%3)];
+  GFont song_font = (strlen(song) <= 12)
+    ? fonts_get_system_font(FONT_KEY_GOTHIC_14)
+    : fonts_get_system_font(FONT_KEY_GOTHIC_09);
+  graphics_context_set_text_color(ctx, GColorDarkGray);
+  graphics_draw_text(ctx, song, song_font,
+    GRect(song_x, 3, 144-song_x-2, 22),
+    GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
 }
 
 static void update_time(struct tm *t) {
@@ -294,11 +238,7 @@ static void tick_handler(struct tm *t, TimeUnits u) { update_time(t); }
 static void window_load(Window *window) {
   Layer *root   = window_get_root_layer(window);
   GRect  bounds = layer_get_bounds(root);
-  s_bg_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_PAPER_BG);
-  s_bg_layer  = bitmap_layer_create(bounds);
-  bitmap_layer_set_bitmap(s_bg_layer, s_bg_bitmap);
-  bitmap_layer_set_compositing_mode(s_bg_layer, GCompOpAssign);
-  layer_add_child(root, bitmap_layer_get_layer(s_bg_layer));
+  window_set_background_color(s_window, GColorWhite);
   s_canvas = layer_create(bounds);
   layer_set_update_proc(s_canvas, canvas_draw);
   layer_add_child(root, s_canvas);
@@ -322,8 +262,6 @@ static void window_load(Window *window) {
 
 static void window_unload(Window *window) {
   layer_destroy(s_canvas);
-  bitmap_layer_destroy(s_bg_layer);
-  gbitmap_destroy(s_bg_bitmap);
   if (s_font_mode != FONT_SYSTEM) {
     fonts_unload_custom_font(s_font_sm);
     fonts_unload_custom_font(s_font_lg);

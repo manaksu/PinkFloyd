@@ -1,9 +1,9 @@
 {
-  "uuid": "6124e3c6-abec-4b5c-8292-0d5d32344f7b",
+  "uuid": "d4e5f6a7-b8c9-0123-defa-234567890abc",
   "shortName": "PFW",
   "longName": "Pink Floyd Watch",
   "companyName": "manaksu",
-  "versionLabel": "1.20",
+  "versionLabel": "1.0",
   "sdkVersion": "3",
   "targetPlatforms": [
     "basalt"
@@ -26,12 +26,12 @@
       {
         "type": "font",
         "name": "FONT_RB_14",
-        "file": "fonts/Roboto.ttf"
+        "file": "fonts/Roboto-Medium.ttf"
       },
       {
         "type": "font",
         "name": "FONT_RB_18",
-        "file": "fonts/Roboto.ttf"
+        "file": "fonts/Roboto-Medium.ttf"
       },
       {
         "type": "font",
