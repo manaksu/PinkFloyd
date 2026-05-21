@@ -1,9 +1,9 @@
 {
-  "uuid": "5ac74d6b-bc63-4f24-948b-e15cc97e6a4a",
+  "uuid": "6124e3c6-abec-4b5c-8292-0d5d32344f7b",
   "shortName": "PFW",
   "longName": "Pink Floyd Watch",
   "companyName": "manaksu",
-  "versionLabel": "2.90",
+  "versionLabel": "1.10",
   "sdkVersion": "3",
   "targetPlatforms": [
     "basalt"
